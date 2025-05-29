@@ -19,7 +19,7 @@ class SkipNews(Exception):
         self.news_id = news_id
 
 # ------------------------------ 全局变量与模型初始化 ------------------------------
-key = "653d34becfd62e46c1a02e7642e43c02.eqLfDKBjGJdnOgH"
+key = "your_key"
 
 # 文件和数据锁，确保线程安全
 data_lock = threading.Lock()
@@ -34,16 +34,16 @@ device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # 使用 BERT 替换原先的编码器
-bert_tokenizer = BertTokenizer.from_pretrained("/usr/gao/gubincheng/article_rep/ENDEF-SIGIR2022/ENDEF-SIGIR2022-main/bert-base-uncased")
-bert_model = BertModel.from_pretrained("/usr/gao/gubincheng/article_rep/ENDEF-SIGIR2022/ENDEF-SIGIR2022-main/bert-base-uncased").to(device)
+bert_tokenizer = BertTokenizer.from_pretrained("/path/to/your/bert-base-uncased")
+bert_model = BertModel.from_pretrained("/path/to/your/bert-base-uncased").to(device)
 bert_model.eval()
 
 client = ZhipuAI(api_key=key)
 
 # 读取新闻数据
-error_txt_path = '/usr/gao/gubincheng/article_rep/Agent/simplest_agent/error_news_ids_3.txt'
-agent_root_path = '/usr/gao/gubincheng/article_rep/Agent/data/pro/Env_Rumor_gossip_content_img_2/'
-news_path = '/usr/gao/gubincheng/article_rep/Agent/data/gossip/part3.json'
+txt_path = '/path/to/your/txt'
+agent_root_path = '/path/to/your/pro/Env_Rumor_gossip_content/'
+news_path = '/path/to/your/data/gossip/part3.json'
 
 
 
@@ -53,7 +53,7 @@ with open(news_path, 'r', encoding='utf-8') as file:
 
 # ------------------------------ 日志设置 ------------------------------
 logging.basicConfig(
-    filename='experiment_results_gossip419.log',
+    filename='experiment_results_gossip.log',
     filemode='w',
     format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -75,7 +75,7 @@ actions = {
 def load_agent(agent_id):
 
     random_agent = str(agent_id)
-    agent_path =  f'/usr/gao/gubincheng/article_rep/Agent/data/pro/Env_Rumor_gossip_content_img_2/agent_{random_agent}/agent_{random_agent}.json'
+    agent_path =  f'path/to/your/agent_{random_agent}/agent_{random_agent}.json'
     try:
         with open(agent_path, 'r', encoding='utf-8') as file:
             profiles_data = json.load(file)
@@ -94,7 +94,7 @@ def update_news_feedback(news_id):
         prompt_content = build_content_prompt_gossip(news_id)
         content_response = get_content_response(prompt_content)
     except Exception:
-        with open(error_txt_path , 'a', encoding='utf-8') as ef:
+        with open(txt_path , 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         raise SkipNews(news_id)
 
@@ -114,7 +114,7 @@ def update_news_feedback(news_id):
         prompt_img, img_path = build_image_prompt(news_id)
         img_response = get_image_response(prompt_img, img_path)
     except Exception:
-        with open(error_txt_path, 'a', encoding='utf-8') as ef:
+        with open(txt_path, 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         raise SkipNews(news_id)
 
@@ -141,7 +141,7 @@ def update_news_feedback(news_id):
         sm_update_sum = get_content_response(friends_info_prompt)
     except Exception:
         # this summary call is non-critical; log but do not skip
-        with open(error_txt_path, 'a', encoding='utf-8') as ef:
+        with open(txt_path, 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         sm_update_sum = ""
 

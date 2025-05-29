@@ -9,10 +9,10 @@ import re
 import time
 from openai import OpenAI
 
-image_path = "/usr/gao/gubincheng/article_rep/Agent/data/politic_imgs/"
-data_path = "/usr/gao/gubincheng/article_rep/Agent/data/pro/news_politic_286.json"
+image_path = "/path/to/your/data/politic_imgs/"
+data_path = "path/to/your/data/pro/.json"
 
-key = "653d34becfd62e46c1a02e7642e43c02.eqLfDKBj4GJdnOgH" 
+key = "your_key" 
 client = ZhipuAI(api_key=key)
 
 def build_content_prompt_politic(news_id=None, content=None, max_content_length=300):

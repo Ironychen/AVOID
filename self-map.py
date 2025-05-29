@@ -6,7 +6,7 @@ from LLM_prompt import get_content_response
 
 # -------------------------
 # 初始化本地的 MiniLM-L6-v2 模型
-encoder = SentenceTransformer('/usr/gao/gubincheng/LLM/all-MiniLM-L6-v2')
+encoder = SentenceTransformer('/path/to/all-MiniLM-L6-v2')
 
 # 使用本地模型生成文本嵌入，支持单个字符串或字符串列表
 def get_embedding(text: Union[str, List[str]]) -> np.array:

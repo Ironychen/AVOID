@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 class ShortMemoryRetriever:
-    def __init__(self, agent_memory_file, model_name="/usr/gao/gubincheng/LLM/all-MiniLM-L6-v2"):
+    def __init__(self, agent_memory_file, model_name="/path/to/all-MiniLM-L6-v2"):
         """
         初始化短期记忆检索器
         :param agent_memory_file: 指定 Agent 的短期记忆 JSON 文件路径
