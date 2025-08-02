@@ -9,10 +9,10 @@ import re
 import time
 from openai import OpenAI
 
-image_path = "/path/to/your/data/politic_imgs/"
-data_path = "path/to/your/data/pro/.json"
+image_path = "/path/tp/your"
+data_path = "path/to/your"
 
-key = "your_key" 
+key = "" 
 client = ZhipuAI(api_key=key)
 
 def build_content_prompt_politic(news_id=None, content=None, max_content_length=300):
@@ -206,6 +206,78 @@ def build_content_prompt_gossip(news_id=None, content=None, max_content_length=3
     """
     return prompt
     
+def build_content_prompt_twitter(news_id=None, content=None, max_content_length=300):
+
+    # If news_id is provided, get news content and comments from data file
+    if news_id:
+        news_data = load_news_by_id(news_id)
+        # print(f"news_data: {news_data}")
+        if news_data:
+            news_content = news_data.get('content', '')
+            # Limit the content length
+            content_words = news_content.split()
+            if len(content_words) > max_content_length:
+                content = ' '.join(content_words[:max_content_length]) + '...'
+            else:
+                content = news_content
+            
+            # Get comments
+            comments = news_data.get('comment', '')
+            if comments and isinstance(comments, list):
+                comments_text = '\n'.join([f"{c.get('name', 'Anonymous')}: {c.get('comment', '')}" for c in comments])
+            elif comments and isinstance(comments, str):
+                comments_text = comments
+            else:
+                comments_text = None
+        else:
+            content = content or "Could not find news content for the specified ID"
+            comments_text = None
+    else:
+        # Use directly provided content
+        comments_text = None
+
+    prompt = f"""
+    You will be presented with a news article and potentially related comments.
+    
+    post:
+    {content}
+    """
+    if comments_text and comments_text.strip():
+        prompt += f"""
+        Related Comments:
+        {comments_text}
+        """
+    # print(f"prompt222222: {prompt[:200]}")  # Only print the first 200 characters for brevity
+    prompt += """
+
+    Please use a chain-of-thought reasoning process to analyze it:
+
+    Step 1: Identify the Core Message
+    Quickly understand what the tweet is saying and identify key people, organizations, or hashtags.
+
+    Step 2: Determine Tone and Stance
+    Assess whether the tone is neutral, positive, negative, or inquisitive. Note if it's expressing an opinion, emotion, or a call to action.
+
+    Step 3: Spot Potential Misinformation
+    Watch for subjective claims, implied assumptions, or hashtags/URLs that may suggest bias or misleading content.
+
+    Step 4: Concise Paraphrase
+    Rewrite the main idea in neutral language using 20–30 words, focusing on the core content.
+
+    Step 5: Brief Insight
+    Highlight potential bias, misinformation risk, or any noteworthy point in under 40 words.
+
+    After these steps, return **only** the following JSON (no extra text):
+    
+    {
+        "summarize": "Your neutral restatement of the tweet.",
+        "opinion":   "Your brief insight about credibility, tone, or potential issues."
+    }
+
+    
+    """
+    # print(f"prompt33333: {prompt[:200]}")  # Only print the first 200 characters for brevity
+    return prompt
 
 
 def build_image_prompt(news_id):
@@ -221,7 +293,7 @@ def build_image_prompt(news_id):
     """
     # If news_id is provided, get the associated image path
     if news_id:
-        image_path = "/usr/gao/gubincheng/article_rep/Agent/data/gossip/pics_gossip/" + news_id + ".jpg"
+        image_path = "/path/to/your/images/" + news_id + ".jpg"
         if not image_path:
             return "Could not find an image associated with the specified news ID."
     
@@ -269,7 +341,7 @@ def load_news_by_id(news_id):
         Dictionary containing news content and comments, or None if not found
     """
     try:
-        data_path = "/usr/gao/gubincheng/article_rep/Agent/data/gossip/gossip_news.json"
+        data_path = "path/to/your"
         with open(data_path, 'r', encoding='utf-8') as f:
             news_data = json.load(f)
             
@@ -282,19 +354,10 @@ def load_news_by_id(news_id):
         print(f"Error loading news data: {e}")
         return None
 
-# def get_content_response(prompt):
-#     client = OpenAI(api_key="sk-fd13d31db47b40259fdf269295c23f92", base_url="https://api.deepseek.com")
-#     response = client.chat.completions.create(
-#         model="deepseek-chat",
-#         messages=[{"role": "system", "content": "You are a helpful assistant."},
-#                   {"role": "user", "content": prompt}],
-#         stream=False
-#     )
-#     return response.choices[0].message.content
 def get_content_response(prompt):
-    client = ZhipuAI(api_key=key)  # 填写您自己的APIKey
+    client = ZhipuAI(api_key=key)  
     response = client.chat.completions.create(
-        model="glm-4-flash",  # 填写需要调用的模型名称
+        model="glm-4-flash",  
         messages=[{"role": "system", "content": "You are an active user on social media."},
                   {"role": "user", "content": prompt}],
         stream=False
@@ -305,9 +368,9 @@ def get_image_response(prompt, img_path):
     with open(img_path, 'rb') as img_file:
         img_base = base64.b64encode(img_file.read()).decode('utf-8')
 
-    client = ZhipuAI(api_key=key)  # 填写您自己的APIKey
+    client = ZhipuAI(api_key=key)  
     response = client.chat.completions.create(
-        model="glm-4v-flash",  # 填写需要调用的模型名称
+        model="glm-4v-flash",  
         messages=[
             {
                 "role": "user",

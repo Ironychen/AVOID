@@ -19,7 +19,7 @@ class SkipNews(Exception):
         self.news_id = news_id
 
 # ------------------------------ 全局变量与模型初始化 ------------------------------
-key = "your_key"
+key = "your_api_key"  # 替换为你的 API 密钥
 
 # 文件和数据锁，确保线程安全
 data_lock = threading.Lock()
@@ -29,21 +29,20 @@ short_mem = []
 long_mem = []
 news_mem = []  # 用于存储新闻及其行为
 
-# 指定设备为第二张 GPU（cuda:1device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # 使用 BERT 替换原先的编码器
-bert_tokenizer = BertTokenizer.from_pretrained("/path/to/your/bert-base-uncased")
-bert_model = BertModel.from_pretrained("/path/to/your/bert-base-uncased").to(device)
+bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+bert_model = BertModel.from_pretrained("bert-base-uncased").to(device)
 bert_model.eval()
 
 client = ZhipuAI(api_key=key)
 
-# 读取新闻数据
-txt_path = '/path/to/your/txt'
-agent_root_path = '/path/to/your/pro/Env_Rumor_gossip_content/'
-news_path = '/path/to/your/data/gossip/part3.json'
+
+error_txt_path = 'path/to/your/error_news.txt'
+agent_root_path = 'path/to/your/agent_root_path'
+news_path = 'path/to/your/news.json'
 
 
 
@@ -53,7 +52,7 @@ with open(news_path, 'r', encoding='utf-8') as file:
 
 # ------------------------------ 日志设置 ------------------------------
 logging.basicConfig(
-    filename='experiment_results_gossip.log',
+    filename='experiment_results_perosona.log',
     filemode='w',
     format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -75,7 +74,7 @@ actions = {
 def load_agent(agent_id):
 
     random_agent = str(agent_id)
-    agent_path =  f'path/to/your/agent_{random_agent}/agent_{random_agent}.json'
+    agent_path =  f'path/to/your/agent_root_path/agent_{random_agent}/agent_{random_agent}.json'
     try:
         with open(agent_path, 'r', encoding='utf-8') as file:
             profiles_data = json.load(file)
@@ -93,8 +92,11 @@ def update_news_feedback(news_id):
     try:
         prompt_content = build_content_prompt_gossip(news_id)
         content_response = get_content_response(prompt_content)
+        # print(f"news_id: {news_id}")
+        # print(f"prompt_content: {prompt_content[:200]}")  # 只打印前200字
+        # print(f"content_response: {content_response[:200]}")
     except Exception:
-        with open(txt_path , 'a', encoding='utf-8') as ef:
+        with open(error_txt_path , 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         raise SkipNews(news_id)
 
@@ -109,12 +111,13 @@ def update_news_feedback(news_id):
         data_content_res = {}
     content_summarize = data_content_res.get("summarize", "")
     content_opinion  = data_content_res.get("opinion", "")
-
+    
     try:
         prompt_img, img_path = build_image_prompt(news_id)
         img_response = get_image_response(prompt_img, img_path)
+        
     except Exception:
-        with open(txt_path, 'a', encoding='utf-8') as ef:
+        with open(error_txt_path, 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         raise SkipNews(news_id)
 
@@ -137,13 +140,24 @@ def update_news_feedback(news_id):
         f"Image analysis: {img_interpretation}\n"
         "Please summarize event info, opinions, and image info in one paragraph (<150 words)."
     )
+
+    # print(f"friends_info_prompt: {friends_info_prompt}")  # 只打印前200字
+
+    # friends_info_prompt = (
+    #     f"After reading the article summary: {content_summarize}\n"
+    #     f"Opinion: {content_opinion}\n"
+    #     "Please summarize event info, opinions, and image info in one paragraph (<150 words)."
+    # )
     try:
         sm_update_sum = get_content_response(friends_info_prompt)
     except Exception:
         # this summary call is non-critical; log but do not skip
-        with open(txt_path, 'a', encoding='utf-8') as ef:
+        with open(error_txt_path, 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
         sm_update_sum = ""
+
+    # img_description = "no image"
+    # img_interpretation = "no image analysis"
 
     return content_summarize, content_opinion, img_description, img_interpretation, sm_update_sum
 
@@ -153,8 +167,8 @@ def generate_profile_prompt(agent_path, profiles_data, short_content):
     memories_str = f"Simplified Summary: {simplified_summary} ; Retriever Summary: {retriever_summary}"
     prompt = f"""
     You are a user in the social network. Don't let the length of the news text influence your judgment.
-    Hi, {profiles_data['agent_name']}, you are a {profiles_data['agent_job']} known for being {profiles_data['agent_traits']}. Please follow the instructions below.
-    You are active on a social network, receiving and sending posts.
+    Hi, {profiles_data['agent_name']}, you are a {profiles_data['agent_job']} known for being {profiles_data['agent_traits']}, your description is {profiles_data['description']}. 
+    Please follow the instructions below. You are active on a social network, receiving and sending posts.
     In terms of memory, you have been keeping track of short-term experiences such as:
     {memories_str}
     """
@@ -167,7 +181,7 @@ def build_prompt(q):
 
     The thinking phase: Jointly analyze the textual and visual content to determine whether the entertainment news is credible, exaggerated, or fabricated, following **GossipCop-style truth standards** while considering typical patterns in entertainment media.
 
-    📌 In entertainment news, **short or catchy titles** are common and do **not necessarily** indicate misinformation. In fact, such titles are often crafted for virality and **may still reflect true events**. However, unverified claims, anonymous sources, or mismatched photos are stronger indicators of potential misinformation.
+    In entertainment news, **short or catchy titles** are common and do **not necessarily** indicate misinformation. In fact, such titles are often crafted for virality and **may still reflect true events**. However, unverified claims, anonymous sources, or mismatched photos are stronger indicators of potential misinformation.
 
     You must assess both aspects:
 
@@ -181,7 +195,7 @@ def build_prompt(q):
         - Is the image possibly taken out of context (e.g., from another time or event)?
         - Is the image used to suggest something dramatic (e.g., a romantic link or scandal) that the text does not clearly confirm?
 
-    ⚠️ Even when the article’s **text appears plausible**, an **out-of-context image** or **implied but unsupported claim** can make the news misleading under entertainment fact-checking standards.
+    Even when the article’s **text appears plausible**, an **out-of-context image** or **implied but unsupported claim** can make the news misleading under entertainment fact-checking standards.
 
     2. Tool Invocation Phase: If you need a tool (e.g., 'search', 'image_checker'), respond with a JSON object:
     {
@@ -215,21 +229,18 @@ def build_prompt(q):
 def update_shot_memories(sm_update_sum, agent_name, agent_comment, comment_stance, friend_list):
     new_entry = {"name": agent_name, "summarize": sm_update_sum, "comment": agent_comment, "stance": comment_stance}
     for friend in friend_list:
-        friend_agent_path = f'/usr/gao/gubincheng/article_rep/Agent/data/pro/Env_Rumor_gossip_content_img_2/agent_{friend}/agent_{friend}.json'
+        friend_agent_path = f'path/to/your/agent_root_path/agent_{friend}/agent_{friend}.json'
         try:
-            # 在读写同一 friend 文件时加锁
+
             with file_lock:
-                # 先读取
                 with open(friend_agent_path, 'r', encoding='utf-8') as file:
                     friend_data = json.load(file)
-                # 更新 short_memory
                 if "short_memory" in friend_data and isinstance(friend_data["short_memory"], list):
                     friend_data["short_memory"].append(new_entry)
                     if len(friend_data["short_memory"]) > 8:
                         friend_data["short_memory"] = friend_data["short_memory"][-8:]
                 else:
                     friend_data["short_memory"] = [new_entry]
-                # 写回文件
                 with open(friend_agent_path, 'w', encoding='utf-8') as file:
                     json.dump(friend_data, file, ensure_ascii=False, indent=4)
             print(f"成功更新好友 {friend} 的短期记忆")
@@ -248,7 +259,7 @@ def update_long_memories(agent_path, short_content):
         retriever_summary = "no relevant short-term memory."
         return simplified_summary, retriever_summary
     most_similar_index = agent_retriever.retrieve_most_similar(short_content)
-    print(f"🔍 最相似的记忆索 {most_similar_index}")
+    print(f"最相似的记忆索 {most_similar_index}")
     if most_similar_index < len(short_memory):
         name = short_memory[most_similar_index].get("nameF", "Unknown")
         summarize = short_memory[most_similar_index].get("summarize", "")
@@ -271,11 +282,11 @@ def update_long_memories(agent_path, short_content):
         After extracting the key points, provide a summary in one paragraph explaining the "Reasoning for the Stance" based on these key points.
         """
         retriever_summary = get_content_response(retriever_prompt)
-        print(f"🔍 简化之后的记忆内容: {simplified_summary}")
-        print(f"🔍 强化之后的记忆内 {retriever_summary}")
+        print(f"简化之后的记忆内容: {simplified_summary}")
+        print(f"强化之后的记忆内 {retriever_summary}")
         return simplified_summary, retriever_summary
     else:
-        print("⚠️ 索引超出 short_memory 的范围")
+        print("索引超出 short_memory 的范围")
         simplified_summary = "no relevant short-term memory."
         retriever_summary = "no relevant short-term memory."
         return simplified_summary, retriever_summary
@@ -323,6 +334,7 @@ def agent_func(q, agent_path, profiles_data, sm_update_sum, friend_list, news_it
     - Current long-term memory: {profiles_data.get('long_memory', 'No long-term memory')}
 
     Based on these guidelines, please provide a comment on the news article .
+
     """
     prompt_thinking = f"""
     After reading the following news article and comments, your feedback is as follows: {content_summarize}
@@ -332,6 +344,7 @@ def agent_func(q, agent_path, profiles_data, sm_update_sum, friend_list, news_it
 
     Please consider these details and structure your response according to the following steps of reasoning and feedback.
     """
+
     prompt = prompt_profile + prompt_guide + prompt_thinking + prompt
     print("llm Prompt aaaaaaaaa:", prompt)
     resp = get_content_response(prompt)
@@ -406,7 +419,7 @@ def should_take_action(agent_path, agent_comment, profiles_data):
 
     agent_retriever = ShortMemoryRetriever(agent_path)
     result = agent_retriever.retrieve_similarity(agent_comment)
-    print(f"🔍 评论与记忆的相似度结 {result}")
+    print(f"评论与记忆的相似度结 {result}")
     if result:
         prompt = f"""
         The comment is similar to the your experience, you are interested in this news, please take action.
@@ -443,7 +456,7 @@ def should_take_action(agent_path, agent_comment, profiles_data):
 def get_agent_feature_bert(agent_data, feature_dim=50):
     """
     使用 BERT 根据 agent_data 中的文字属性生成描述性文本，并生成特征向量    若输出维度不等于 feature_dim，则进行线性映射    """
-    description = f"{agent_data.get('agent_job', 'Unknown')} - {agent_data.get('agent_traits', 'Unknown')} - {agent_data.get('description', 'No description')}"
+    description = f"{agent_data.get('agent_job', 'Unknown')} - {agent_data.get('description', 'No description')}"
     inputs = bert_tokenizer(description, return_tensors="pt", truncation=True, padding=True).to(device)
     with torch.no_grad():
         outputs = bert_model(**inputs)
@@ -456,19 +469,15 @@ def get_agent_feature_bert(agent_data, feature_dim=50):
     return cls_embedding
 
 def combine_graphs_raw(graph_info_list, debug=True):
-    """
-    将多个传播图信息直接串联（不去重），返回原始节点列表和边列表    如果在处理过程中，发现边中有节点未在当前节点列表中，则打印警告信息并将其加入    """
+   
     raw_nodes = []
     raw_edges = []
     offset = 0
     for idx, gi in enumerate(graph_info_list):
-        # 确保节点均为字符        
+             
         nodes = [str(x) for x in gi["nodes"]]
-        # 边转换为字符串形式，假设边存储的也是agent id
         edges = [(str(src), str(dst)) for src, dst in gi["edges"]]
-        # 构造从节点到索引的映射
-        node_index_map = {node: i for i, node in enumerate(nodes)}
-        # 检查边中是否存在节点未nodes        
+        node_index_map = {node: i for i, node in enumerate(nodes)}     
         for src, dst in edges:
             if src not in node_index_map:
                 if debug:
@@ -480,7 +489,7 @@ def combine_graphs_raw(graph_info_list, debug=True):
                     print(f"DEBUG: 在图 {idx+1} 中，({src}, {dst}) 的目标节{dst} 未在节点列表中。自动添加该节点")
                 node_index_map[dst] = len(nodes)
                 nodes.append(dst)
-        # 将当前图节点添加raw_nodes，并更新边的索引
+
         raw_nodes.extend(nodes)
         for src, dst in edges:
             raw_edges.append((node_index_map[src] + offset, node_index_map[dst] + offset))
@@ -603,8 +612,8 @@ def propagate_news(initial_agent_id,  propagation_threshold=5, initial_news=None
 
 
 # ------------------------------ 主流------------------------------
-# 保存结果到文件夹 "gcn_data"
-output_folder = "gcn_data_img_gossip_8"
+
+output_folder = "gcn_data"
 os.makedirs(output_folder, exist_ok=True)
 
 
@@ -616,7 +625,7 @@ for item in data:
 news_graph_features = {}
 data_lock = threading.Lock()
 
-def process_single_news(news_item, fixed_agents=None, propagation_threshold=5, output_folder="gcn_data_img_gossip_8"):
+def process_single_news(news_item, fixed_agents=None, propagation_threshold=5, output_folder=output_folder):
     news_id = news_item.get('id', 'unknown')
     news_folder = os.path.join(output_folder, news_id)
     os.makedirs(news_folder, exist_ok=True)
@@ -624,10 +633,7 @@ def process_single_news(news_item, fixed_agents=None, propagation_threshold=5, o
     try:
         print(f"\n========== 处理新闻 {news_id} ==========")
         if fixed_agents is None:
-            fixed_agents = ["17", "66"]
-
-        # 先获取文本和图片反馈，若失败则 SkipNews
-        content_summarize, content_opinion, img_description, img_interpretation, sm_update_sum = update_news_feedback(news_id)
+            fixed_agents = ["17", "66","88"]
 
         paths_info = []
         graph_info_list = []
@@ -648,14 +654,21 @@ def process_single_news(news_item, fixed_agents=None, propagation_threshold=5, o
                 if agent == "17":
                     agent_data_dict[agent] = {
                         "agent_job":"Paramedic","agent_traits":"Courageous, Compassionate",
-                        "description":"…","followers_count":13892.0,
+                        "description":"This persona is a **liberal/progressive thinker** whose engagement with social justice is deeply **interwoven with emotional resonance**, particularly when encountering personal stories of resilience, as seen in their heartfelt admiration for figures like Willow and Rhianna facing adversity. Their ideological stance is marked by a **strong distrust of media sensationalism and institutional failures**, often voicing frustration with ethical lapses in positions of power. They exhibit **high Openness**, embracing emotional and personal narratives, and **moderate Agreeableness**, balancing warmth (e.g., affectionate praise) with sharp critique. Their language fluctuates between **informally expressive** (\"Such a cute pic\") and **morally charged** (\"fail in both Ethics\"), often employing **rhetorical questions** to underscore outrage or disbelief. Arguments are **emotionally anchored**, leveraging personal stories to humanize systemic issues, though they occasionally prioritize **passionate conviction over rigorous evidence**. A defining nuance is their **duality of tone—tender yet impatient**—swinging between heartfelt empathy and exasperation with perceived societal shortcomings. Recurring phrases like \"My love and Respect\" reveal a **sentimental streak**, while their focus on ethical failings highlights a **moral rigor** that adds depth to their progressive leanings. This blend of **emotional vulnerability and ideological fervor** makes them a vivid, relatable critic who champions resilience while holding power to account.","followers_count":13892.0,
                         "friends_count":1023,"verified":"True","favorites_count":"122368.0"
                     }
                 elif agent == "66":
                     agent_data_dict[agent] = {
                         "agent_job":"Architect","agent_traits":"Visionary, Detailed",
-                        "description":"…","followers_count":936.0,
-                        "friends_count":1742,"verified":"False","favorites_count":"18072.0"
+                        "description":"This persona is a master of casual irreverence, navigating online spaces with a sharp, sarcastic wit and a distinct lack of ideological commitment. Their core interests orbit around pop culture and internet trends, often poking fun at celebrity gossip or viral phenomena rather than engaging with weighty topics. Ideologically, they remain neutral—or perhaps disengaged—mocking political labels and avoiding substantive discourse, though their playful derision (like the repetitive \"alt right alt right alt riiight\") could be misread as a stance. Their personality leans toward low openness and conscientiousness, favoring brevity and humor over depth or structure, as seen in their fragmented, slang-heavy remarks (\"LMFAO,\" \"W,\" \"Ugh, not even\"). Communication is informal, punchy, and laced with internet vernacular, often relying on sarcasm and exaggerated phrasing to underscore their disinterest in seriousness. When they do express opinions, it’s through snappy one-liners or ironic jabs rather than reasoned arguments, preferring mockery over logic. A defining quirk is their tendency to reduce conversations to absurdity, using repetition and hyperbole to drain them of meaning—a tactic that keeps them firmly in the realm of the unserious, where they seem most at home.","followers_count":9361.0,
+                        "friends_count":1742,"verified":"True","favorites_count":"18072.0"
+                    }
+                elif agent == "88":
+                    agent_data_dict[agent] = {
+                        "agent_job":"Architect","agent_traits":"Visionary, Detailed",
+                        "description":"This individual is a **staunch conservative and traditionalist**, deeply rooted in moral absolutism and nationalist populism, with a pragmatic streak when it comes to economic policy and political strategy. Their core interests revolve around **economic conservatism, political maneuvering, and institutional skepticism**, often dissecting policy implications (e.g., tax reforms, infrastructure deals) with a detached, analytical lens. While they exhibit **low openness** in dismissing progressive ideologies, they display a tactical flexibility in assessing partisan dynamics, revealing a **cynical yet strategic mindset** toward governance. Their **value orientation** leans heavily toward order, tradition, and national sovereignty, with a pronounced distrust of globalist institutions like the UN.  \n\nIn communication, they adopt a **formal, logical, and often blunt tone**, favoring evidence-based arguments but with a clear ideological bent. Their language is **precise and unemotional**, occasionally laced with rhetorical sharpness when challenging opposing views. When constructing arguments, they rely on **pragmatic reasoning and political realism**, often predicting outcomes through a lens of calculated compromise—yet their underlying moral rigidity remains unmistakable.  \n\nNotable nuances include a **contradiction between ideological inflexibility and tactical adaptability**, as well as a recurring skepticism toward political elites. Their **populist undertones** surface in critiques of \"establishment\" deals, while their **religious and absolutist leanings** anchor their moral stances. A distinctive trait is their **dispassionate analysis of heated topics**, blending cold pragmatism with deeply held convictions—a combination that makes their commentary both methodical and ideologically charged.",
+                        "followers_count":9361.0,
+                        "friends_count":44910,"verified":"True","favorites_count":"585"
                     }
                 else:
                     agent_data_dict[agent] = {
@@ -718,13 +731,13 @@ def process_single_news(news_item, fixed_agents=None, propagation_threshold=5, o
         return news_id, graph_feature
 
     except SkipNews as e:
-        print(f"⚠️ 跳过新闻 {e.news_id} （更新反馈出错）")
+        print(f"跳过新闻 {e.news_id} （更新反馈出错）")
         return None, None
     except Exception as e:
         # 其他未知错误也记录并跳过
         with open(error_txt_path, 'a', encoding='utf-8') as ef:
             ef.write(f"{news_id}\n")
-        print(f"❌ 处理新闻 {news_id} 时出现异常，已跳过")
+        print(f"处理新闻 {news_id} 时出现异常，已跳过")
         return None, None
 
 def worker():
@@ -744,7 +757,7 @@ def worker():
         gc.collect()
 
 # 启动线程
-num_threads = 10
+num_threads = 28
 threads = []
 for _ in range(num_threads):
     t = threading.Thread(target=worker)
@@ -756,4 +769,3 @@ for t in threads:
     t.join()
 
 print(f"\n所有新闻处理完成，共 {len(news_graph_features)} 条")
-
