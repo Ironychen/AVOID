@@ -1,7 +1,7 @@
 [README.md](https://github.com/user-attachments/files/21563657/README.md)
-# KDD_AVOID
+# AVOID
 
-KDD_AVOID is a simulation and detection framework for rumor propagation based on social networks and personalized agents. It leverages GCN-based propagation graph modeling and LLM-based multi-agent simulation to better understand and detect misinformation.
+KDD_AVOID is a simulation and detection framework for rumor propagation based on social networks and personalized agents. 
 
 ## Project Structure
 
