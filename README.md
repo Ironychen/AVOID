@@ -12,7 +12,7 @@ KDD_AVOID/
 ├── persona/                              # Persona extraction and modeling code
 ├── dataset_processing.py                 # Dataset loading and preprocessing utilities
 ├── earlystopping.py                      # Early stopping mechanism for model training
-├── gcn.py                                # GCN model definition
+├── gcn.py                                # GCN model 
 ├── node_feature.py                       # Node-level feature extraction
 ├── LLM_prompt.py                         # LLM prompt construction and message simulation
 ├── Retriever.py                          # LLM-based retrieval for agent decision-making
